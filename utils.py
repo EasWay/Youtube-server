@@ -7,7 +7,7 @@ import shutil
 import time
 from langcodes import find
 from quart import url_for
-# from pytubefix.exceptions import AgeRestrictedError, LiveStreamError, MaxRetriesExceeded, MembersOnly, VideoPrivate, VideoRegionBlocked, VideoUnavailable, RegexMatchError
+from pytubefix.exceptions import AgeRestrictedError, LiveStreamError, MaxRetriesExceeded, MembersOnly, VideoPrivate, VideoRegionBlocked, VideoUnavailable, RegexMatchError
 from youtube_urls_validator import validate_url
 # from youtube_transcript_api import YouTubeTranscriptApi
 # from youtube_transcript_api.formatters import JSONFormatter, SRTFormatter, TextFormatter
@@ -170,7 +170,11 @@ def download_content(yt, resolution: str ="", bitrate: str ="", frame_rate: int 
                 if len(streams) > 0:
                     stream = streams.first()
             else:
-                stream = yt.streams.get_highest_resolution()
+                # Default to 720p instead of highest resolution
+                stream = yt.streams.filter(res="720p").first()
+                if not stream:
+                    # Fallback to highest if 720p not available
+                    stream = yt.streams.get_highest_resolution()
             if stream:
                 is_valid, error = True, None # validate_download(yt)
                 if is_valid:

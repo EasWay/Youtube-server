@@ -15,9 +15,21 @@ def combine_video_and_audio(video_path,audio_path,temp_path):
     :param audio_path: Path to the audio file (e.g., .mp3).
     :param output_path: Path where the output video with audio will be saved.
     """
+    # Ensure temp directory exists
+    temp_dir = os.path.dirname(temp_path)
+    if temp_dir and not os.path.exists(temp_dir):
+        os.makedirs(temp_dir, exist_ok=True)
+        logger.info(f"Created directory: {temp_dir}")
+    
     if os.path.exists(temp_path):
       logger.info("Deleting temp file " + temp_path)
       os.remove(temp_path)
+    
+    # Convert to absolute paths
+    video_path = os.path.abspath(video_path)
+    audio_path = os.path.abspath(audio_path)
+    temp_path = os.path.abspath(temp_path)
+    
     # FFmpeg command to combine video and audio
     ffmpeg_command = [
       'ffmpeg',
@@ -39,7 +51,12 @@ def combine_video_and_audio(video_path,audio_path,temp_path):
     if os.path.isfile(temp_path):
         # Replace the original file with the temporary file
         shutil.move(temp_path, video_path)
-        logger.info(f"Video and subtitle combined successfully. Output file: {video_path}")
+        logger.info(f"Video and audio combined successfully. Output file: {video_path}")
+        
+        # Delete the audio file after successful combination
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            logger.info(f"Deleted audio file: {audio_path}")
     else:
         logger.warning(f"Temporary file {temp_path} not found.")
     
@@ -55,10 +72,20 @@ def add_subtitles(video_path, subtitle_path, temp_path, burn= True, lang_code="e
     :param subtitle_path: Path to the subtitle file (e.g., .srt).
     :param temp_path: Path where the temporary output video with subtitles will be saved.
     """
+    # Ensure temp directory exists
+    temp_dir = os.path.dirname(temp_path)
+    if temp_dir and not os.path.exists(temp_dir):
+        os.makedirs(temp_dir, exist_ok=True)
+        logger.info(f"Created directory: {temp_dir}")
     
     if os.path.exists(temp_path):
       logger.info("Deleting temp file " + temp_path)
       os.remove(temp_path)
+    
+    # Convert to absolute paths
+    video_path = os.path.abspath(video_path)
+    subtitle_path = os.path.abspath(subtitle_path)
+    temp_path = os.path.abspath(temp_path)
     
     # FFmpeg command to combine video and subtitle
     ffmpeg_command = [
