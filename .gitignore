@@ -3,3 +3,4 @@ auth/
 venv/
 temp_files/
 __pycache__/
+.env

@@ -31,9 +31,11 @@ logger= logging.getLogger(__name__)
 
 app = Quart(__name__)
 
+# Always create temp directories
+os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(AUTH_DIR, exist_ok=True)
+
 if AUTH:
-      os.makedirs(TEMP_DIR, exist_ok=True)
-      os.makedirs(AUTH_DIR, exist_ok=True)
       AUTH_FILE_PATH = os.path.join(AUTH_DIR,AUTH_FILE_NAME)
       logger.info(f"auth file path {AUTH_FILE_PATH}")
       write_creds_to_file(ACCESS_TOKEN, REFRESH_TOKEN, EXPIRES, VISITOR_DATA, PO_TOKEN, AUTH_FILE_PATH)
@@ -50,7 +52,7 @@ async def handle_ping():
 
 @app.route("/")
 async def docs():
-    return "Check out https://github.com/DannyAkintunde/Youtube-dl-api for docs", 200
+    return "Life is blissful", 200
 
 search_objs = {}
 
@@ -175,11 +177,12 @@ async def download_highest_avaliable_resolution():
     try:
       yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress, po_token_verifier=fetch_po_token)
       
+      video_file = None
+      audio_file = None
       video_stream, error_message = await asyncio.to_thread(download_content,yt, hdr=hdr)
       get_audio = False
       if not error_message:
           video_file = await asyncio.to_thread(video_stream.download)
-          audio_file = None
           # Check if video stream has audio by checking audio_codec
           if not video_stream.is_progressive:
               get_audio = True
