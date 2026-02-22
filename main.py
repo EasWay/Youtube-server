@@ -195,15 +195,17 @@ async def download_highest_avaliable_resolution():
                   audio_file = await asyncio.to_thread(audio_stream.download, output_path=TEMP_DIR)
           
           if audio_file:
-              # Combine returns the new file path
-              video_file = await asyncio.to_thread(combine_video_and_audio, video_file, audio_file, video_file)
+              # Create a temporary output path for the combined file
+              combined_output = os.path.join(TEMP_DIR, f"combined_{os.path.basename(video_file)}")
+              video_file = await asyncio.to_thread(combine_video_and_audio, video_file, audio_file, combined_output)
           
           if subtitle:
               caption, error_message = await asyncio.to_thread(get_captions, yt, lang, translate=translate)
               if caption:
                   caption_file = caption.srt()
-                  # Add subtitles returns the new file path
-                  video_file = await asyncio.to_thread(add_subtitles, video_file, caption_file, video_file, burn, lang)
+                  # Create a temporary output path for the subtitled file
+                  subtitled_output = os.path.join(TEMP_DIR, f"subtitled_{os.path.basename(video_file)}")
+                  video_file = await asyncio.to_thread(add_subtitles, video_file, caption_file, subtitled_output, burn, lang)
                   threading.Thread(target=delete_file_after_delay, args=(caption_file, EXPIRATION_DELAY)).start()
                  
       """ 
@@ -300,15 +302,17 @@ async def download_by_resolution(resolution):
                   audio_file = await asyncio.to_thread(audio_stream.download, output_path=TEMP_DIR)
           
           if audio_file:
-              # Combine returns the new file path
-              video_file = await asyncio.to_thread(combine_video_and_audio, video_file, audio_file, video_file)
+              # Create a temporary output path for the combined file
+              combined_output = os.path.join(TEMP_DIR, f"combined_{os.path.basename(video_file)}")
+              video_file = await asyncio.to_thread(combine_video_and_audio, video_file, audio_file, combined_output)
           
           if subtitle:
               caption, error_message = await asyncio.to_thread(get_captions, yt, lang, translate=translate)
               if caption:
                   caption_file = caption.srt()
-                  # Add subtitles returns the new file path
-                  video_file = await asyncio.to_thread(add_subtitles, video_file, caption_file, video_file, burn, lang)
+                  # Create a temporary output path for the subtitled file
+                  subtitled_output = os.path.join(TEMP_DIR, f"subtitled_{os.path.basename(video_file)}")
+                  video_file = await asyncio.to_thread(add_subtitles, video_file, caption_file, subtitled_output, burn, lang)
                   threading.Thread(target=delete_file_after_delay, args=(caption_file, EXPIRATION_DELAY)).start()
       
       """
