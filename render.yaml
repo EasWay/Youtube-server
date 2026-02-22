@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: youtube-server
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: hypercorn -b :$PORT -w 4 main:app
+    envVars:
+      - key: DEBUG
+        value: False
+      - key: AUTH
+        value: False
+      - key: PYTHON_VERSION
+        value: 3.12.0
