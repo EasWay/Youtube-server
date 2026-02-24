@@ -161,49 +161,72 @@ def validate_download(stream):
 
 def download_content(yt, resolution: str ="", bitrate: str ="", frame_rate: int =30, content_type: str ="video", hdr: bool | None =None):
     try:
+        logger.info(f"Starting download_content: type={content_type}, resolution={resolution}, bitrate={bitrate}, frame_rate={frame_rate}, hdr={hdr}")
         #yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, on_progress_callback = on_progress)
         stream = None
         if content_type.lower() == "video":
+            logger.debug(f"Fetching video streams...")
             if resolution:
+                logger.debug(f"Filtering streams: is_video=True, frame_rate={frame_rate}, resolution={resolution}, hdr={hdr}")
                 streams = yt.streams.filter(is_video=True, frame_rate=frame_rate, resolution=resolution, hdr=(hdr if hdr != None else None))
                 streams.order_by('hdr')
+                logger.debug(f"Found {len(streams)} matching streams")
                 if len(streams) > 0:
                     stream = streams.first()
+                    logger.info(f"Selected stream: {stream}")
             else:
                 # Default to 720p instead of highest resolution
+                logger.debug("No resolution specified, trying 720p...")
                 stream = yt.streams.filter(res="720p").first()
                 if not stream:
+                    logger.debug("720p not available, getting highest resolution...")
                     # Fallback to highest if 720p not available
                     stream = yt.streams.get_highest_resolution()
+                logger.info(f"Selected stream: {stream}")
             if stream:
                 is_valid, error = True, None # validate_download(yt)
                 if is_valid:
+                    logger.info(f"Stream validated successfully")
                     return stream, None
                 else:
+                  logger.error(f"Stream validation failed: {error}")
                   return None, error
             else:
                 available_resolutions = yt.streams.get_available_resolutions()
                 available_frame_rates = yt.streams.get_highest_frame_rates()
-                return None, f"Video with the specified resolution of frame rate not found. Avaliable resolutions are: {available_resolutions} and frame rates are {available_frame_rates}"
+                error_msg = f"Video with the specified resolution of frame rate not found. Avaliable resolutions are: {available_resolutions} and frame rates are {available_frame_rates}"
+                logger.error(error_msg)
+                return None, error_msg
         elif content_type.lower() == "audio":
+            logger.debug(f"Fetching audio streams...")
             if bitrate:
+              logger.debug(f"Filtering audio streams: only_audio=True, abr={bitrate}")
               stream = yt.streams.filter(only_audio=True, abr=bitrate).first()
             else:
+              logger.debug("Getting highest quality audio...")
               stream = yt.streams.get_audio_only()
+            
             if stream:
+                logger.info(f"Selected audio stream: {stream}")
                 is_valid, error = True, None # validate_download(stream)
                 if is_valid:
+                    logger.info(f"Audio stream validated successfully")
                     return stream, None
                 else:
+                    logger.error(f"Audio stream validation failed: {error}")
                     return None, error
             else:
                 available_bitrates = yt.streams.get_available_bit_rates()
-                return None, f"Audio stream with the specified bitrate not found. Avaliable bitrates are: {available_bitrates}"
+                error_msg = f"Audio stream with the specified bitrate not found. Avaliable bitrates are: {available_bitrates}"
+                logger.error(error_msg)
+                return None, error_msg
         else:
-            return None, "Invalid content type specified. Use 'video' or 'audio'."
+            error_msg = "Invalid content type specified. Use 'video' or 'audio'."
+            logger.error(error_msg)
+            return None, error_msg
         
     except Exception as e:
-        logger.error(f"Error downloding {content_type} content: {e}")
+        logger.error(f"Error downloding {content_type} content: {e}", exc_info=True)
         return None, f'An error occored: {e} if you are seeing this message please contact administrator or open a issue at github.com/DannyAkintunde/Youtube-dl-api'
 
 def get_captions(yt,lang, translate=False):
