@@ -140,7 +140,7 @@ async def video_info():
       return jsonify({"error": "Invalid YouTube URL."}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, po_token_verifier=fetch_po_token)
+      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH)
       video_info, error = await asyncio.to_thread(get_info, yt)
       
       if video_info:
@@ -178,7 +178,7 @@ async def download_highest_avaliable_resolution():
         return jsonify({"error": "Invalid lang code"}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress, po_token_verifier=fetch_po_token)
+      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
       
       video_file = None
       audio_file = None
@@ -287,7 +287,7 @@ async def download_by_resolution(resolution):
             return jsonify({"error": "Invalid lang code"}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress, po_token_verifier=fetch_po_token)
+      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
       
       video_stream, error_message = await asyncio.to_thread(download_content,yt, hdr=hdr, resolution=resolution, frame_rate=frame_rate)
       get_audio = False
@@ -316,7 +316,7 @@ async def download_by_resolution(resolution):
                   threading.Thread(target=delete_file_after_delay, args=(caption_file, EXPIRATION_DELAY)).start()
       
       """
-      yt = YouTube(url,  use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file = AUTH and AUTH_FILE_PATH, on_progress_callback = on_progress, po_token_verifier=fetch_po_token)
+      yt = YouTube(url,  use_oauth=AUTH, allow_oauth_cache=True, token_file = AUTH and AUTH_FILE_PATH, on_progress_callback = on_progress)
       video_file, error_message = await asyncio.to_thread(download_content, yt, resolution)
       if not error_message:
           if bitrate:
@@ -371,7 +371,7 @@ async def download_highest_quality_audio():
     if not is_valid_youtube_url(url):
       return jsonify({"error": "Invalid YouTube URL."}), 400
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress, po_token_verifier=fetch_po_token)
+      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
       audio_stream, error_message = await asyncio.to_thread(download_content, yt, content_type="audio")
       audio_file = None 
       if audio_stream:
@@ -405,7 +405,7 @@ async def download_audio_by_bitrate(bitrate):
        return jsonify({"error": "Invalid request URL, input a valid bitrate for example 48kpbs fuck you"}), 400
  
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress, po_token_verifier=fetch_po_token)
+      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
       audio_stream, error_message = await asyncio.to_thread(download_content, yt, content_type="audio", bitrate=bitrate)
       
       audio_file = None
@@ -460,7 +460,7 @@ async def get_subtitles(lang):
         return jsonify({"error": "File format not specfied"}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, use_po_token=AUTH, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress, po_token_verifier=fetch_po_token)
+      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
       caption, error_message = await asyncio.to_thread(get_captions,yt,lang)
       if caption:
           if out_format in ('srt', 'txt'):
