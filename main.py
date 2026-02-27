@@ -240,100 +240,100 @@ async def download_highest_avaliable_resolution():
           audio_file = None
           logger.info("Calling download_content for video stream...")
           video_stream, error_message = await asyncio.to_thread(download_content,yt, hdr=hdr)
-      
-      if error_message:
-          logger.error(f"Video stream download failed: {error_message}")
-          return jsonify({"error": error_message}), 500
-      
-      get_audio = False
-      if not error_message:
-          logger.info(f"Downloading video file to {TEMP_DIR}...")
-          video_file = await asyncio.to_thread(video_stream.download, output_path=TEMP_DIR)
-          logger.info(f"Video file downloaded: {video_file}")
           
-          # Check if video stream has audio by checking audio_codec
-          if not video_stream.is_progressive:
-              logger.info("Video stream is not progressive, need to download audio separately")
-              get_audio = True
-          else:
-              logger.info("Video stream is progressive (includes audio)")
+          if error_message:
+              logger.error(f"Video stream download failed: {error_message}")
+              return jsonify({"error": error_message}), 500
+          
+          get_audio = False
+          if not error_message:
+              logger.info(f"Downloading video file to {TEMP_DIR}...")
+              video_file = await asyncio.to_thread(video_stream.download, output_path=TEMP_DIR)
+              logger.info(f"Video file downloaded: {video_file}")
               
-          if get_audio:
-              logger.info("Calling download_content for audio stream...")
-              audio_stream, error_message = await asyncio.to_thread(download_content, yt, content_type="audio")
-              if not error_message:
-                  logger.info(f"Downloading audio file to {TEMP_DIR}...")
-                  audio_file = await asyncio.to_thread(audio_stream.download, output_path=TEMP_DIR)
-                  logger.info(f"Audio file downloaded: {audio_file}")
+              # Check if video stream has audio by checking audio_codec
+              if not video_stream.is_progressive:
+                  logger.info("Video stream is not progressive, need to download audio separately")
+                  get_audio = True
               else:
-                  logger.error(f"Audio stream download failed: {error_message}")
-          
-          if audio_file:
-              # Create a temporary output path for the combined file
-              combined_output = os.path.join(TEMP_DIR, f"combined_{os.path.basename(video_file)}")
-              logger.info(f"Combining video and audio: {video_file} + {audio_file} -> {combined_output}")
-              video_file = await asyncio.to_thread(combine_video_and_audio, video_file, audio_file, combined_output)
-              logger.info(f"Combined file created: {video_file}")
-          
-          if subtitle:
-              logger.info(f"Getting captions: lang={lang}, translate={translate}")
-              caption, error_message = await asyncio.to_thread(get_captions, yt, lang, translate=translate)
-              if caption:
-                  caption_file = caption.srt()
-                  logger.info(f"Caption file created: {caption_file}")
-                  # Create a temporary output path for the subtitled file
-                  subtitled_output = os.path.join(TEMP_DIR, f"subtitled_{os.path.basename(video_file)}")
-                  logger.info(f"Adding subtitles: {video_file} + {caption_file} -> {subtitled_output}")
-                  video_file = await asyncio.to_thread(add_subtitles, video_file, caption_file, subtitled_output, burn, lang)
-                  logger.info(f"Subtitled file created: {video_file}")
-                  threading.Thread(target=delete_file_after_delay, args=(caption_file, EXPIRATION_DELAY)).start()
-              else:
-                  logger.warning(f"Caption download failed: {error_message}")
-                 
-      """ 
-      video_file, error_message = await asyncio.to_thread(download_content,yt)
-      if not error_message:
-          audio_file, error_message = await asyncio.to_thread(download_content, yt, content_type="audio")
-          if audio_file:
-              await asyncio.to_thread(combine_video_and_audio, video_file,audio_file,os.path.join(TEMP_DIR,f"temp_{os.path.basename(video_file)}"))
-              #combine_video_and_audio( video_file,audio_file,os.path.join(TEMP_DIR,f"temp_{os.path.basename(video_file)}"))
-              if subtitle:
-                caption, error_message = await asyncio.to_thread(get_captions, yt, lang)
-                if caption:
-                  await asyncio.to_thread(add_subtitles, video_file, caption["path"], os.path.join(TEMP_DIR,f"temp_{os.path.basename(video_file)}"), burn, lang)
-                  threading.Thread(target=delete_file_after_delay, args=(caption["path"], EXPIRATION_DELAY)).start()
-                  del caption["path"]
+                  logger.info("Video stream is progressive (includes audio)")
                   
-              threading.Thread(target=delete_file_after_delay, args=(audio_file, EXPIRATION_DELAY)).start()
-      """
-      
-      if video_file:
-          logger.info(f"Download successful! Final file: {video_file}")
-          threading.Thread(target=delete_file_after_delay, args=(video_file, EXPIRATION_DELAY)).start()
-          if data.get("link"):
-            download_link =  url_for('get_file', filename=os.path.basename(video_file), _external=True)
-            logger.info(f"Returning download link: {download_link}")
-            return jsonify(
-              {
-                "download_link": download_link,
-                "video_info": {
-                  "quality": {
-                    "resolution": getattr(video_stream, 'resolution', 'unknown'),
-                    "frame_rate": getattr(video_stream, 'fps', 30),
-                    "bit_rate": getattr(video_stream, 'bitrate', 0) or (getattr(audio_stream, 'bitrate', 0) if audio_file else 0),
-                    "hdr": getattr(video_stream, 'is_hdr', False)},
-                    "filename": getattr(video_stream, 'default_filename', 'video.mp4'),
-                    "title": yt.title,
-                    "duration": yt.length
-                }
-              }
-              ), 200
+              if get_audio:
+                  logger.info("Calling download_content for audio stream...")
+                  audio_stream, error_message = await asyncio.to_thread(download_content, yt, content_type="audio")
+                  if not error_message:
+                      logger.info(f"Downloading audio file to {TEMP_DIR}...")
+                      audio_file = await asyncio.to_thread(audio_stream.download, output_path=TEMP_DIR)
+                      logger.info(f"Audio file downloaded: {audio_file}")
+                  else:
+                      logger.error(f"Audio stream download failed: {error_message}")
+              
+              if audio_file:
+                  # Create a temporary output path for the combined file
+                  combined_output = os.path.join(TEMP_DIR, f"combined_{os.path.basename(video_file)}")
+                  logger.info(f"Combining video and audio: {video_file} + {audio_file} -> {combined_output}")
+                  video_file = await asyncio.to_thread(combine_video_and_audio, video_file, audio_file, combined_output)
+                  logger.info(f"Combined file created: {video_file}")
+              
+              if subtitle:
+                  logger.info(f"Getting captions: lang={lang}, translate={translate}")
+                  caption, error_message = await asyncio.to_thread(get_captions, yt, lang, translate=translate)
+                  if caption:
+                      caption_file = caption.srt()
+                      logger.info(f"Caption file created: {caption_file}")
+                      # Create a temporary output path for the subtitled file
+                      subtitled_output = os.path.join(TEMP_DIR, f"subtitled_{os.path.basename(video_file)}")
+                      logger.info(f"Adding subtitles: {video_file} + {caption_file} -> {subtitled_output}")
+                      video_file = await asyncio.to_thread(add_subtitles, video_file, caption_file, subtitled_output, burn, lang)
+                      logger.info(f"Subtitled file created: {video_file}")
+                      threading.Thread(target=delete_file_after_delay, args=(caption_file, EXPIRATION_DELAY)).start()
+                  else:
+                      logger.warning(f"Caption download failed: {error_message}")
+                     
+          """ 
+          video_file, error_message = await asyncio.to_thread(download_content,yt)
+          if not error_message:
+              audio_file, error_message = await asyncio.to_thread(download_content, yt, content_type="audio")
+              if audio_file:
+                  await asyncio.to_thread(combine_video_and_audio, video_file,audio_file,os.path.join(TEMP_DIR,f"temp_{os.path.basename(video_file)}"))
+                  #combine_video_and_audio( video_file,audio_file,os.path.join(TEMP_DIR,f"temp_{os.path.basename(video_file)}"))
+                  if subtitle:
+                    caption, error_message = await asyncio.to_thread(get_captions, yt, lang)
+                    if caption:
+                      await asyncio.to_thread(add_subtitles, video_file, caption["path"], os.path.join(TEMP_DIR,f"temp_{os.path.basename(video_file)}"), burn, lang)
+                      threading.Thread(target=delete_file_after_delay, args=(caption["path"], EXPIRATION_DELAY)).start()
+                      del caption["path"]
+                      
+                  threading.Thread(target=delete_file_after_delay, args=(audio_file, EXPIRATION_DELAY)).start()
+          """
+          
+          if video_file:
+              logger.info(f"Download successful! Final file: {video_file}")
+              threading.Thread(target=delete_file_after_delay, args=(video_file, EXPIRATION_DELAY)).start()
+              if data.get("link"):
+                download_link =  url_for('get_file', filename=os.path.basename(video_file), _external=True)
+                logger.info(f"Returning download link: {download_link}")
+                return jsonify(
+                  {
+                    "download_link": download_link,
+                    "video_info": {
+                      "quality": {
+                        "resolution": getattr(video_stream, 'resolution', 'unknown'),
+                        "frame_rate": getattr(video_stream, 'fps', 30),
+                        "bit_rate": getattr(video_stream, 'bitrate', 0) or (getattr(audio_stream, 'bitrate', 0) if audio_file else 0),
+                        "hdr": getattr(video_stream, 'is_hdr', False)},
+                        "filename": getattr(video_stream, 'default_filename', 'video.mp4'),
+                        "title": yt.title,
+                        "duration": yt.length
+                    }
+                  }
+                  ), 200
+              else:
+                logger.info(f"Sending file: {video_file}")
+                return await send_file(video_file, as_attachment=True), 200
           else:
-            logger.info(f"Sending file: {video_file}")
-            return await send_file(video_file, as_attachment=True), 200
-      else:
-          logger.error(f"Download failed: {error_message}")
-          return jsonify({"error": error_message}), 500
+              logger.error(f"Download failed: {error_message}")
+              return jsonify({"error": error_message}), 500
       
       finally:
           # Clean up Tor proxy after download completes
