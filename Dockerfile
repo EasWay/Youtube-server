@@ -18,22 +18,24 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p temp_files auth /var/lib/tor
+# Create necessary directories with proper permissions
+RUN mkdir -p temp_files auth /tmp/tor && \
+    chmod 777 /tmp/tor
 
-# Configure Tor
-RUN echo "SocksPort 0.0.0.0:9050" > /etc/tor/torrc && \
-    echo "ControlPort 0.0.0.0:9051" >> /etc/tor/torrc && \
+# Configure Tor to use /tmp for data directory (no permission issues)
+RUN echo "SocksPort 127.0.0.1:9050" > /etc/tor/torrc && \
+    echo "ControlPort 127.0.0.1:9051" >> /etc/tor/torrc && \
     echo "CookieAuthentication 0" >> /etc/tor/torrc && \
-    echo "DataDirectory /var/lib/tor" >> /etc/tor/torrc && \
+    echo "DataDirectory /tmp/tor" >> /etc/tor/torrc && \
     echo "Log notice stdout" >> /etc/tor/torrc
-
-# Set proper permissions for Tor
-RUN chown -R debian-tor:debian-tor /var/lib/tor && \
-    chmod 700 /var/lib/tor
 
 # Expose port
 EXPOSE 8080
 
 # Start script that launches both Tor and the app
-CMD tor -f /etc/tor/torrc & sleep 10 && hypercorn -b 0.0.0.0:8080 -w 4 main:app
+# Run Tor in background, wait for it to bootstrap, then start the app
+CMD tor -f /etc/tor/torrc & \
+    echo "Waiting for Tor to bootstrap..." && \
+    sleep 15 && \
+    echo "Starting application..." && \
+    hypercorn -b 0.0.0.0:8080 -w 4 main:app
