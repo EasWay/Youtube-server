@@ -5,7 +5,7 @@ from youtubesearchpython.__future__ import VideosSearch, ResultMode, Suggestions
 from pytubefix.exceptions import AgeRestrictedError, LiveStreamError, MaxRetriesExceeded, MembersOnly, VideoPrivate, VideoRegionBlocked, VideoUnavailable, RegexMatchError
 from apscheduler.schedulers.background import BackgroundScheduler
 from editor import combine_video_and_audio, add_subtitles
-from utils import is_valid_youtube_url, is_valid_language, get_proxies, get_info, download_content, get_captions, delete_file_after_delay, write_creds_to_file, fetch_po_token, create_youtube_with_retry
+from utils import is_valid_youtube_url, is_valid_language, get_proxies, get_info, download_content, get_captions, delete_file_after_delay, write_creds_to_file, fetch_po_token, create_youtube_with_retry, is_tor_enabled, disable_tor_proxy
 from settings import *
 import re
 import os
@@ -235,10 +235,11 @@ async def download_highest_avaliable_resolution():
       yt = await asyncio.to_thread(create_youtube_with_retry, url)
       logger.info(f"YouTube object created successfully. Video title: {yt.title}")
       
-      video_file = None
-      audio_file = None
-      logger.info("Calling download_content for video stream...")
-      video_stream, error_message = await asyncio.to_thread(download_content,yt, hdr=hdr)
+      try:
+          video_file = None
+          audio_file = None
+          logger.info("Calling download_content for video stream...")
+          video_stream, error_message = await asyncio.to_thread(download_content,yt, hdr=hdr)
       
       if error_message:
           logger.error(f"Video stream download failed: {error_message}")
@@ -333,6 +334,12 @@ async def download_highest_avaliable_resolution():
       else:
           logger.error(f"Download failed: {error_message}")
           return jsonify({"error": error_message}), 500
+      
+      finally:
+          # Clean up Tor proxy after download completes
+          if is_tor_enabled():
+              disable_tor_proxy()
+    
     except Exception as e:
         logger.error(f"An error occored downloading content: {repr(e)}", exc_info=True)
         return jsonify({"error": f"Server error : {repr(e)}"}), 500

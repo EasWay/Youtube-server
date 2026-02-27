@@ -161,6 +161,12 @@ def disable_tor_proxy():
         logger.info("Disabled SOCKS5 proxy")
 
 
+def is_tor_enabled():
+    """Check if Tor proxy is currently enabled"""
+    proxies_list = get_proxies()
+    return bool(proxies_list) and proxies_list[0].get('type') == 'tor'
+
+
 def get_next_proxy():
     """Get the next proxy in rotation, skipping failed ones"""
     global _proxy_index, _failed_proxies
@@ -197,6 +203,9 @@ def create_youtube_with_retry(url, max_retries=3, initial_delay=2):
     Create YouTube object with automatic proxy rotation and retry logic
     Supports both regular proxies and Tor network
     
+    NOTE: If using Tor, the SOCKS proxy will remain enabled after this function
+    returns to allow subsequent downloads. Call disable_tor_proxy() when done.
+    
     Args:
         url: YouTube video URL
         max_retries: Maximum number of retry attempts
@@ -213,99 +222,106 @@ def create_youtube_with_retry(url, max_retries=3, initial_delay=2):
     if is_tor:
         enable_tor_proxy()
     
-    try:
-        for attempt in range(max_retries):
-            try:
-                proxy_dict = None
-                
-                if use_proxies:
-                    # Renew Tor circuit if needed
-                    if is_tor and should_renew_tor_circuit():
-                        logger.info("Renewing Tor circuit for fresh IP...")
-                        renew_tor_circuit()
-                    
-                    proxy = get_next_proxy()
-                    if proxy:
-                        if is_tor:
-                            # For Tor, SOCKS proxy is already enabled globally
-                            logger.info(f"Attempt {attempt + 1}: Using Tor network (SOCKS5 proxy)")
-                            proxy_dict = None  # Don't pass proxy_dict for Tor
-                        else:
-                            # Convert to pytubefix proxy format for regular HTTP/HTTPS proxies
-                            proxy_dict = {
-                                'http': proxy['server'],
-                                'https': proxy['server']
-                            }
-                            
-                            # Add authentication for non-Tor proxies
-                            if 'username' in proxy and proxy['username']:
-                                auth = f"{proxy['username']}:{proxy['password']}@"
-                                proxy_dict['http'] = proxy_dict['http'].replace('://', f'://{auth}')
-                                proxy_dict['https'] = proxy_dict['https'].replace('://', f'://{auth}')
-                            
-                            logger.info(f"Attempt {attempt + 1}: Using proxy {proxy['server']}")
-                
-                # Create YouTube object
-                yt = YouTube(
-                    url,
-                    use_oauth=AUTH,
-                    allow_oauth_cache=True,
-                    token_file=AUTH and os.path.join('auth', 'temp.json'),
-                    proxies=proxy_dict  # Will be None for Tor (uses global SOCKS proxy)
-                )
-                
-                # Test the connection by accessing a property
-                _ = yt.title
-                
-                logger.info(f"Successfully created YouTube object for: {yt.title}")
-                
-                return yt
-                
-            except HTTPError as e:
-                if e.code == 429:
-                    delay = initial_delay * (2 ** attempt)
-                    logger.warning(f"Rate limited (429) on attempt {attempt + 1}/{max_retries}")
-                    
-                    if is_tor:
-                        logger.info("Rate limited on Tor, renewing circuit...")
-                        renew_tor_circuit()
-                    elif use_proxies and proxy:
-                        logger.info(f"Switching to next proxy due to rate limit")
-                    
-                    if attempt < max_retries - 1:
-                        logger.info(f"Waiting {delay} seconds before retry...")
-                        time.sleep(delay)
-                    else:
-                        logger.error("Max retries reached, all attempts failed")
-                        if is_tor:
-                            raise Exception("YouTube rate limit exceeded even with Tor. Try again later.")
-                        else:
-                            raise Exception("YouTube rate limit exceeded. Please try again later or configure more proxies.")
-                else:
-                    logger.error(f"HTTP Error {e.code}: {e}")
-                    raise
-                    
-            except Exception as e:
-                logger.error(f"Attempt {attempt + 1} failed: {repr(e)}")
-                
-                # Try renewing Tor circuit on failure
-                if is_tor and attempt < max_retries - 1:
-                    logger.info("Renewing Tor circuit after failure...")
+    for attempt in range(max_retries):
+        try:
+            proxy_dict = None
+            
+            if use_proxies:
+                # Renew Tor circuit if needed
+                if is_tor and should_renew_tor_circuit():
+                    logger.info("Renewing Tor circuit for fresh IP...")
                     renew_tor_circuit()
                 
+                proxy = get_next_proxy()
+                if proxy:
+                    if is_tor:
+                        # For Tor, SOCKS proxy is already enabled globally
+                        logger.info(f"Attempt {attempt + 1}: Using Tor network (SOCKS5 proxy)")
+                        proxy_dict = None  # Don't pass proxy_dict for Tor
+                    else:
+                        # Convert to pytubefix proxy format for regular HTTP/HTTPS proxies
+                        proxy_dict = {
+                            'http': proxy['server'],
+                            'https': proxy['server']
+                        }
+                        
+                        # Add authentication for non-Tor proxies
+                        if 'username' in proxy and proxy['username']:
+                            auth = f"{proxy['username']}:{proxy['password']}@"
+                            proxy_dict['http'] = proxy_dict['http'].replace('://', f'://{auth}')
+                            proxy_dict['https'] = proxy_dict['https'].replace('://', f'://{auth}')
+                        
+                        logger.info(f"Attempt {attempt + 1}: Using proxy {proxy['server']}")
+            
+            # Create YouTube object
+            yt = YouTube(
+                url,
+                use_oauth=AUTH,
+                allow_oauth_cache=True,
+                token_file=AUTH and os.path.join('auth', 'temp.json'),
+                proxies=proxy_dict  # Will be None for Tor (uses global SOCKS proxy)
+            )
+            
+            # Test the connection by accessing a property
+            _ = yt.title
+            
+            logger.info(f"Successfully created YouTube object for: {yt.title}")
+            
+            # NOTE: We DON'T disable Tor proxy here - it needs to stay enabled for downloads
+            return yt
+            
+        except HTTPError as e:
+            if e.code == 429:
+                delay = initial_delay * (2 ** attempt)
+                logger.warning(f"Rate limited (429) on attempt {attempt + 1}/{max_retries}")
+                
+                if is_tor:
+                    logger.info("Rate limited on Tor, renewing circuit...")
+                    renew_tor_circuit()
+                elif use_proxies and proxy:
+                    logger.info(f"Switching to next proxy due to rate limit")
+                
                 if attempt < max_retries - 1:
-                    delay = initial_delay * (2 ** attempt)
                     logger.info(f"Waiting {delay} seconds before retry...")
                     time.sleep(delay)
                 else:
-                    raise
-        
-        raise Exception("Failed to create YouTube object after all retries")
+                    logger.error("Max retries reached, all attempts failed")
+                    # Disable Tor on final failure
+                    if is_tor:
+                        disable_tor_proxy()
+                    if is_tor:
+                        raise Exception("YouTube rate limit exceeded even with Tor. Try again later.")
+                    else:
+                        raise Exception("YouTube rate limit exceeded. Please try again later or configure more proxies.")
+            else:
+                logger.error(f"HTTP Error {e.code}: {e}")
+                # Disable Tor on error
+                if is_tor:
+                    disable_tor_proxy()
+                raise
+                
+        except Exception as e:
+            logger.error(f"Attempt {attempt + 1} failed: {repr(e)}")
+            
+            # Try renewing Tor circuit on failure
+            if is_tor and attempt < max_retries - 1:
+                logger.info("Renewing Tor circuit after failure...")
+                renew_tor_circuit()
+            
+            if attempt < max_retries - 1:
+                delay = initial_delay * (2 ** attempt)
+                logger.info(f"Waiting {delay} seconds before retry...")
+                time.sleep(delay)
+            else:
+                # Disable Tor on final failure
+                if is_tor:
+                    disable_tor_proxy()
+                raise
     
-    finally:
-        # Always disable Tor proxy when done
-        if is_tor:
-            disable_tor_proxy()
+    # Disable Tor if we somehow get here
+    if is_tor:
+        disable_tor_proxy()
+    raise Exception("Failed to create YouTube object after all retries")
 
 def filter_stream_by_codec(streams, codec):
     return [stream  for stream in streams if codec in stream.video_codec]
