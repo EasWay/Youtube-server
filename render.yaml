@@ -3,12 +3,26 @@ services:
     name: youtube-server
     env: python
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: hypercorn -b :$PORT -w 4 main:app
+    buildCommand: |
+      chmod +x setup_tor.sh
+      ./setup_tor.sh
+      pip install -r requirements.txt
+    startCommand: |
+      tor -f /etc/tor/torrc &
+      sleep 5
+      hypercorn -b :$PORT -w 4 main:app
     envVars:
       - key: DEBUG
         value: False
       - key: AUTH
         value: False
+      - key: USE_TOR
+        value: True
+      - key: TOR_PROXY_HOST
+        value: 127.0.0.1
+      - key: TOR_PROXY_PORT
+        value: 9050
+      - key: TOR_CONTROL_PORT
+        value: 9051
       - key: PYTHON_VERSION
         value: 3.12.0

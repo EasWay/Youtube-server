@@ -5,7 +5,7 @@ from youtubesearchpython.__future__ import VideosSearch, ResultMode, Suggestions
 from pytubefix.exceptions import AgeRestrictedError, LiveStreamError, MaxRetriesExceeded, MembersOnly, VideoPrivate, VideoRegionBlocked, VideoUnavailable, RegexMatchError
 from apscheduler.schedulers.background import BackgroundScheduler
 from editor import combine_video_and_audio, add_subtitles
-from utils import is_valid_youtube_url, is_valid_language, get_proxies, get_info, download_content, get_captions, delete_file_after_delay, write_creds_to_file, fetch_po_token
+from utils import is_valid_youtube_url, is_valid_language, get_proxies, get_info, download_content, get_captions, delete_file_after_delay, write_creds_to_file, fetch_po_token, create_youtube_with_retry
 from settings import *
 import re
 import os
@@ -140,7 +140,7 @@ async def video_info():
       return jsonify({"error": "Invalid YouTube URL."}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH)
+      yt = await asyncio.to_thread(create_youtube_with_retry, url)
       video_info, error = await asyncio.to_thread(get_info, yt)
       
       if video_info:
@@ -181,8 +181,7 @@ async def download_highest_avaliable_resolution():
     
     try:
       logger.info(f"Initializing YouTube object for URL: {url}")
-      logger.debug(f"AUTH={AUTH}, token_file={AUTH and AUTH_FILE_PATH}")
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
+      yt = await asyncio.to_thread(create_youtube_with_retry, url)
       logger.info(f"YouTube object created successfully. Video title: {yt.title}")
       
       video_file = None
@@ -322,7 +321,7 @@ async def download_by_resolution(resolution):
             return jsonify({"error": "Invalid lang code"}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
+      yt = await asyncio.to_thread(create_youtube_with_retry, url)
       
       video_stream, error_message = await asyncio.to_thread(download_content,yt, hdr=hdr, resolution=resolution, frame_rate=frame_rate)
       get_audio = False
@@ -406,7 +405,7 @@ async def download_highest_quality_audio():
     if not is_valid_youtube_url(url):
       return jsonify({"error": "Invalid YouTube URL."}), 400
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
+      yt = await asyncio.to_thread(create_youtube_with_retry, url)
       audio_stream, error_message = await asyncio.to_thread(download_content, yt, content_type="audio")
       audio_file = None 
       if audio_stream:
@@ -440,7 +439,7 @@ async def download_audio_by_bitrate(bitrate):
        return jsonify({"error": "Invalid request URL, input a valid bitrate for example 48kpbs fuck you"}), 400
  
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
+      yt = await asyncio.to_thread(create_youtube_with_retry, url)
       audio_stream, error_message = await asyncio.to_thread(download_content, yt, content_type="audio", bitrate=bitrate)
       
       audio_file = None
@@ -495,7 +494,7 @@ async def get_subtitles(lang):
         return jsonify({"error": "File format not specfied"}), 400
     
     try:
-      yt = YouTube(url, use_oauth=AUTH, allow_oauth_cache=True, token_file=AUTH and AUTH_FILE_PATH, on_progress_callback=on_progress)
+      yt = await asyncio.to_thread(create_youtube_with_retry, url)
       caption, error_message = await asyncio.to_thread(get_captions,yt,lang)
       if caption:
           if out_format in ('srt', 'txt'):

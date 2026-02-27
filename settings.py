@@ -3,6 +3,12 @@ import os
 # DEBUG mode: Determines if debugging is enabled. Defaults to True if not set.
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
+# TOR: Enable Tor proxy routing
+USE_TOR = os.environ.get("USE_TOR", "False") == "True"
+TOR_PROXY_HOST = os.environ.get("TOR_PROXY_HOST", "127.0.0.1")
+TOR_PROXY_PORT = int(os.environ.get("TOR_PROXY_PORT", "9050"))
+TOR_CONTROL_PORT = int(os.environ.get("TOR_CONTROL_PORT", "9051"))
+
 # PROXY: list of proxies
 PROXIES = os.environ.get("PROXIES","").split(",")
 
