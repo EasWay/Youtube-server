@@ -196,21 +196,27 @@ def create_youtube_with_retry(url, max_retries=3, initial_delay=2):
                 
                 proxy = get_next_proxy()
                 if proxy:
-                    # Convert to pytubefix proxy format
-                    proxy_dict = {
-                        'http': proxy['server'],
-                        'https': proxy['server']
-                    }
-                    
-                    # Add authentication for non-Tor proxies
-                    if proxy.get('type') != 'tor' and 'username' in proxy and proxy['username']:
-                        auth = f"{proxy['username']}:{proxy['password']}@"
-                        proxy_dict['http'] = proxy_dict['http'].replace('://', f'://{auth}')
-                        proxy_dict['https'] = proxy_dict['https'].replace('://', f'://{auth}')
-                    
                     if is_tor:
+                        # For Tor/SOCKS5, pytubefix needs the proxy in a specific format
+                        # We need to set it as environment variables for urllib to use
+                        import os
+                        os.environ['HTTP_PROXY'] = proxy['server']
+                        os.environ['HTTPS_PROXY'] = proxy['server']
                         logger.info(f"Attempt {attempt + 1}: Using Tor network (SOCKS5 proxy)")
+                        proxy_dict = None  # Don't pass proxy_dict, use env vars instead
                     else:
+                        # Convert to pytubefix proxy format for regular HTTP/HTTPS proxies
+                        proxy_dict = {
+                            'http': proxy['server'],
+                            'https': proxy['server']
+                        }
+                        
+                        # Add authentication for non-Tor proxies
+                        if 'username' in proxy and proxy['username']:
+                            auth = f"{proxy['username']}:{proxy['password']}@"
+                            proxy_dict['http'] = proxy_dict['http'].replace('://', f'://{auth}')
+                            proxy_dict['https'] = proxy_dict['https'].replace('://', f'://{auth}')
+                        
                         logger.info(f"Attempt {attempt + 1}: Using proxy {proxy['server']}")
             
             # Create YouTube object
@@ -219,16 +225,29 @@ def create_youtube_with_retry(url, max_retries=3, initial_delay=2):
                 use_oauth=AUTH,
                 allow_oauth_cache=True,
                 token_file=AUTH and os.path.join('auth', 'temp.json'),
-                proxies=proxy_dict
+                proxies=proxy_dict  # Will be None for Tor (uses env vars instead)
             )
             
             # Test the connection by accessing a property
             _ = yt.title
             
             logger.info(f"Successfully created YouTube object for: {yt.title}")
+            
+            # Clean up environment variables if using Tor
+            if is_tor:
+                import os
+                os.environ.pop('HTTP_PROXY', None)
+                os.environ.pop('HTTPS_PROXY', None)
+            
             return yt
             
         except HTTPError as e:
+            # Clean up Tor env vars on error
+            if is_tor:
+                import os
+                os.environ.pop('HTTP_PROXY', None)
+                os.environ.pop('HTTPS_PROXY', None)
+            
             if e.code == 429:
                 delay = initial_delay * (2 ** attempt)
                 logger.warning(f"Rate limited (429) on attempt {attempt + 1}/{max_retries}")
@@ -253,6 +272,12 @@ def create_youtube_with_retry(url, max_retries=3, initial_delay=2):
                 raise
                 
         except Exception as e:
+            # Clean up Tor env vars on error
+            if is_tor:
+                import os
+                os.environ.pop('HTTP_PROXY', None)
+                os.environ.pop('HTTPS_PROXY', None)
+            
             logger.error(f"Attempt {attempt + 1} failed: {repr(e)}")
             
             # Try renewing Tor circuit on failure

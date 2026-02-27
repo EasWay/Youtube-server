@@ -9,7 +9,7 @@ import json
 import sys
 
 # Your Render server URL
-SERVER_URL = "https://youtube-server-2n1t.onrender.com"
+SERVER_URL = "https://youtube-server-k9cd.onrender.com"
 
 def test_tor_status():
     """Check if Tor is enabled and working on the server"""
