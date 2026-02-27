@@ -1,16 +1,9 @@
 services:
   - type: web
     name: youtube-server
-    env: python
-    runtime: python
-    buildCommand: |
-      chmod +x setup_tor.sh
-      ./setup_tor.sh
-      pip install -r requirements.txt
-    startCommand: |
-      tor -f /etc/tor/torrc &
-      sleep 5
-      hypercorn -b :$PORT -w 4 main:app
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: DEBUG
         value: False
@@ -24,5 +17,5 @@ services:
         value: 9050
       - key: TOR_CONTROL_PORT
         value: 9051
-      - key: PYTHON_VERSION
-        value: 3.12.0
+      - key: PORT
+        value: 8080

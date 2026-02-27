@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+
+# Temp files
+temp_files/
+auth/
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!requirements.txt
+
+# Test files
+test_*.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Render
+setup_tor.sh
