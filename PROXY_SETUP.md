@@ -473,9 +473,87 @@ DEBUG=False
 
 ### Render.com Deployment with Tor
 
-Note: Render.com doesn't allow Tor installation. Use paid proxies or alternative hosting.
+**NEW: Tor is now fully supported on Render!**
 
-For VPS deployment (DigitalOcean, AWS, etc.):
+The server includes automatic Tor installation and configuration for Render deployments.
+
+#### Quick Setup
+
+1. **Deploy to Render** - Tor is pre-configured in `render.yaml`
+2. **Verify in logs**:
+   ```
+   Setting up Tor...
+   Tor is running successfully on port 9050
+   Using Tor network (SOCKS5 proxy)
+   ```
+
+3. **Environment variables** (already set in render.yaml):
+   ```yaml
+   USE_TOR: True
+   TOR_PROXY_HOST: 127.0.0.1
+   TOR_PROXY_PORT: 9050
+   TOR_CONTROL_PORT: 9051
+   ```
+
+#### Features on Render
+
+- **Automatic Installation**: Tor installs during build
+- **Auto-start**: Tor starts with your server
+- **IP Rotation**: New IP every 10 requests
+- **Rate Limit Handling**: Automatic circuit renewal on 429 errors
+- **No Extra Cost**: Completely free
+
+#### Testing on Render
+
+After deployment, check your server logs or add this endpoint to test:
+
+```python
+@app.route('/tor_status')
+async def tor_status():
+    from settings import USE_TOR, TOR_PROXY_HOST, TOR_PROXY_PORT
+    if not USE_TOR:
+        return jsonify({"tor_enabled": False})
+    
+    try:
+        import requests
+        proxies = {
+            'http': f'socks5://{TOR_PROXY_HOST}:{TOR_PROXY_PORT}',
+            'https': f'socks5://{TOR_PROXY_HOST}:{TOR_PROXY_PORT}'
+        }
+        response = requests.get('https://check.torproject.org/api/ip', 
+                              proxies=proxies, timeout=10)
+        return jsonify({
+            "tor_enabled": True,
+            "is_tor": response.json().get('IsTor', False),
+            "exit_ip": response.json().get('IP')
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+```
+
+#### Disable Tor on Render
+
+If you want to use paid proxies instead:
+
+```yaml
+# In Render dashboard, set:
+USE_TOR: False
+AUTH: True
+PROXIES: "http://user:pass@proxy.com:8080"
+```
+
+#### Performance Notes
+
+- Tor is slower (3-5x) but free and effective
+- Server defaults to 720p for better performance
+- For high-volume production, consider paid proxies
+- Hybrid approach: Use both Tor and paid proxies
+
+See [TOR_SETUP.md](./TOR_SETUP.md) for detailed Tor documentation.
+
+---
+
+For VPS deployment (DigitalOcean, AWS, etc.) without the automatic setup:
 ```bash
 # Install Tor on your VPS
 sudo apt install tor privoxy

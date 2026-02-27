@@ -57,6 +57,57 @@ async def handle_ping():
 async def docs():
     return "Life is blissful", 200
 
+@app.route("/tor_status")
+async def tor_status():
+    """Check if Tor is enabled and working"""
+    from settings import USE_TOR, TOR_PROXY_HOST, TOR_PROXY_PORT
+    import requests as req
+    
+    status = {
+        "tor_enabled": USE_TOR,
+        "tor_configured": False,
+        "tor_working": False,
+        "exit_ip": None,
+        "is_tor_exit": False,
+        "error": None
+    }
+    
+    if not USE_TOR:
+        status["message"] = "Tor is disabled. Set USE_TOR=True to enable."
+        return jsonify(status), 200
+    
+    status["tor_configured"] = True
+    status["proxy_address"] = f"{TOR_PROXY_HOST}:{TOR_PROXY_PORT}"
+    
+    try:
+        # Test Tor connection
+        proxies = {
+            'http': f'socks5://{TOR_PROXY_HOST}:{TOR_PROXY_PORT}',
+            'https': f'socks5://{TOR_PROXY_HOST}:{TOR_PROXY_PORT}'
+        }
+        
+        # Check if we're using Tor
+        response = req.get('https://check.torproject.org/api/ip', 
+                          proxies=proxies, timeout=15)
+        data = response.json()
+        
+        status["tor_working"] = True
+        status["is_tor_exit"] = data.get('IsTor', False)
+        status["exit_ip"] = data.get('IP')
+        
+        if status["is_tor_exit"]:
+            status["message"] = "✓ Tor is working perfectly!"
+        else:
+            status["message"] = "⚠ Connected but not through Tor"
+            status["error"] = "Proxy connected but not routing through Tor network"
+            
+    except Exception as e:
+        status["error"] = str(e)
+        status["message"] = "✗ Tor connection failed"
+        logger.error(f"Tor status check failed: {repr(e)}")
+    
+    return jsonify(status), 200
+
 search_objs = {}
 
 @app.route('/search', methods=['GET'])
@@ -557,6 +608,18 @@ async def add_dev_details(response):
     return response
 
 if __name__ == '__main__':
+    # Log Tor status on startup
+    from settings import USE_TOR, TOR_PROXY_HOST, TOR_PROXY_PORT
+    if USE_TOR:
+        logger.info("=" * 60)
+        logger.info("TOR NETWORK ENABLED")
+        logger.info(f"Tor Proxy: {TOR_PROXY_HOST}:{TOR_PROXY_PORT}")
+        logger.info("All YouTube requests will be routed through Tor")
+        logger.info("Check /tor_status endpoint to verify Tor is working")
+        logger.info("=" * 60)
+    else:
+        logger.info("Tor is disabled. Set USE_TOR=True to enable.")
+    
     if not DEBUG:
       scheduler = BackgroundScheduler()
       scheduler.add_job(clear_temp_directory, "interval", days=1)
