@@ -19,18 +19,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p temp_files auth /etc/tor
+RUN mkdir -p temp_files auth /var/lib/tor
 
 # Configure Tor
 RUN echo "SocksPort 0.0.0.0:9050" > /etc/tor/torrc && \
     echo "ControlPort 0.0.0.0:9051" >> /etc/tor/torrc && \
     echo "CookieAuthentication 0" >> /etc/tor/torrc && \
-    echo "HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C" >> /etc/tor/torrc && \
     echo "DataDirectory /var/lib/tor" >> /etc/tor/torrc && \
     echo "Log notice stdout" >> /etc/tor/torrc
+
+# Set proper permissions for Tor
+RUN chown -R debian-tor:debian-tor /var/lib/tor && \
+    chmod 700 /var/lib/tor
 
 # Expose port
 EXPOSE 8080
 
 # Start script that launches both Tor and the app
-CMD tor -f /etc/tor/torrc & sleep 5 && hypercorn -b 0.0.0.0:8080 -w 4 main:app
+CMD tor -f /etc/tor/torrc & sleep 10 && hypercorn -b 0.0.0.0:8080 -w 4 main:app
