@@ -411,6 +411,76 @@ def get_info(yt):
         return None, str(e)
 
 
+class YtDlpStream:
+    """Fallback stream wrapper backed by yt-dlp for cipher-resistant downloads."""
+
+    def __init__(self, video_url, format_spec, resolution=None, abr=None, is_audio=False):
+        self.video_url = video_url
+        self.format_spec = format_spec
+        self.resolution = resolution
+        self.abr = abr
+        self.is_progressive = True  # yt-dlp merges video+audio internally
+        self.fps = 30
+        self.bitrate = 0
+        self.is_hdr = False
+        self.default_filename = "audio.m4a" if is_audio else "video.mp4"
+
+    def download(self, output_path="."):
+        try:
+            import yt_dlp
+        except ImportError:
+            raise RuntimeError("yt-dlp is not installed; cannot fall back from pytubefix cipher error")
+
+        import uuid as _u
+        unique_id = _u.uuid4().hex[:8]
+        output_template = os.path.join(output_path, f"ytdlp_{unique_id}.%(ext)s")
+
+        ydl_opts = {
+            'format': self.format_spec,
+            'outtmpl': output_template,
+            'quiet': True,
+            'no_warnings': True,
+            'merge_output_format': 'mp4',
+        }
+
+        # Temporarily un-patch the global socket so yt-dlp can use its own proxy handling
+        socket_was_patched = False
+        if USE_TOR and _original_socket is not None and socket.socket == socks.socksocket:
+            socket.socket = _original_socket
+            socket_was_patched = True
+            ydl_opts['proxy'] = f"socks5://{TOR_PROXY_HOST}:{TOR_PROXY_PORT}"
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.extract_info(self.video_url, download=True)
+        finally:
+            if socket_was_patched:
+                socket.socket = socks.socksocket
+
+        for ext in ('mp4', 'webm', 'mkv', 'm4a', 'opus', 'ogg', 'mp3'):
+            candidate = os.path.join(output_path, f"ytdlp_{unique_id}.{ext}")
+            if os.path.exists(candidate):
+                return candidate
+        raise FileNotFoundError(f"yt-dlp download completed but output file not found in {output_path}")
+
+
+def _ytdlp_fallback(video_url, resolution="", bitrate="", content_type="video", hdr=None):
+    """Return a YtDlpStream when pytubefix fails to decode YouTube's cipher."""
+    logger.info(f"Falling back to yt-dlp: type={content_type}, resolution={resolution}, bitrate={bitrate}")
+    if content_type == "video":
+        if resolution:
+            height = resolution.rstrip('p')
+            fmt = (f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]"
+                   f"/bestvideo[height<={height}]+bestaudio/best[height<={height}]")
+        else:
+            fmt = ("bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]"
+                   "/bestvideo[height<=720]+bestaudio/best[height<=720]")
+        return YtDlpStream(video_url, fmt, resolution=resolution or "720p"), None
+    else:
+        fmt = "bestaudio[ext=m4a]/bestaudio/best"
+        return YtDlpStream(video_url, fmt, abr=bitrate or "128kbps", is_audio=True), None
+
+
 def validate_download(stream):
   if stream.filesize_approx <= MAX_DOWNLOAD_SIZE:
       filesize = stream.filesize
@@ -488,6 +558,12 @@ def download_content(yt, resolution: str ="", bitrate: str ="", frame_rate: int 
             logger.error(error_msg)
             return None, error_msg
         
+    except RegexMatchError as e:
+        logger.warning(f"pytubefix cipher error, falling back to yt-dlp: {e}")
+        return _ytdlp_fallback(
+            f"https://www.youtube.com/watch?v={yt.video_id}",
+            resolution, bitrate, content_type, hdr
+        )
     except Exception as e:
         logger.error(f"Error downloding {content_type} content: {e}", exc_info=True)
         return None, f'An error occored: {e} if you are seeing this message please contact administrator or open a issue at github.com/DannyAkintunde/Youtube-dl-api'
